@@ -1,0 +1,28 @@
+pre {
+  margin-top: 0;
+  margin-bottom: 0;
+  border: 1px solid black;
+}
+
+li {
+  list-style-type: none;
+}
+
+li.expando {
+  list-style-type: disc;
+  cursor: pointer;
+}
+
+li.expando > pre,
+li.expando > ul {
+  display: none;
+}
+
+li.expando.expanded > pre,
+li.expando.expanded > ul {
+  display: block;
+}
+
+li.expando.expanded {
+  list-style-type: circle;
+}

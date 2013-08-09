@@ -1,5 +1,9 @@
 'use strict';
 
+//
+// Helper functions.
+//
+
 String.prototype.repeat = function (num) {
   return new Array(num + 1).join(this);
 };
@@ -15,48 +19,56 @@ function getData(url, callback) {
   xhr.send(null);
 }
 
+//
+// Walking
+//
+
 function StreamContents(stream) {
   this.stream = stream;
 }
 
-function walker(root) {
-  var xref = root.xref;
+function Node(obj, name, depth, ref) {
+  this.obj = obj;
+  this.name = name;
+  this.depth = depth;
+  this.ref = ref;
+}
 
-  function Node(obj, name, depth, ref) {
-    this.obj = obj;
-    this.name = name;
-    this.depth = depth;
-    this.ref = ref;
-  }
-
-  Node.prototype = {
-    get children() {
-      var depth = this.depth + 1;
-      var obj = this.obj;
-      var children = [];
-      if (isDict(obj) || isStream(obj)) {
-        var map;
-        if (isDict(obj)) {
-          map = obj.map;
-        } else {
-          map = obj.dict.map;
-        }
-        for (var key in map) {
-          var value = map[key];
-          children.push(new Node(value, key, depth));
-        }
-        if (isStream(obj)) {
-          children.push(new Node(new StreamContents(obj), 'Contents', depth));
-        }
-      } else if (isArray(obj)) {
-        for (var i = 0, ii = obj.length; i < ii; i++) {
-          var value = obj[i];
-          children.push(new Node(value, i, depth));
-        }
+Node.prototype = {
+  get children() {
+    var depth = this.depth + 1;
+    var obj = this.obj;
+    var children = [];
+    if (isDict(obj) || isStream(obj)) {
+      var map;
+      if (isDict(obj)) {
+        map = obj.map;
+      } else {
+        map = obj.dict.map;
       }
-      return children;
+      for (var key in map) {
+        var value = map[key];
+        children.push(new Node(value, key, depth));
+      }
+      if (isStream(obj)) {
+        children.push(new Node(new StreamContents(obj), 'Contents', depth));
+      }
+    } else if (isArray(obj)) {
+      for (var i = 0, ii = obj.length; i < ii; i++) {
+        var value = obj[i];
+        children.push(new Node(value, i, depth));
+      }
     }
-  };
+    return children;
+  }
+};
+
+function createWalker(data) {
+  var pdf = new PDFDocument(null, data);
+  pdf.parseStartXRef();
+  pdf.parse();
+  var xref = pdf.xref;
+  var root = xref.trailer;
 
   function addChildren(node, nodesToVisit) {
     var children = node.children;
@@ -69,14 +81,17 @@ function walker(root) {
     while (nodesToVisit.length) {
       var currentNode = nodesToVisit.pop();
       if (currentNode.depth > 20) {
-        throw new Error('Depth too big.');
+        throw new Error('Max depth exceeded.');
       }
 
       if (isRef(currentNode.obj)) {
         var fetched = xref.fetch(currentNode.obj);
         currentNode = new Node(fetched, currentNode.name, currentNode.depth, currentNode.obj);
       }
-      var visitChildren = visit(currentNode);
+      var visitChildren = visit(currentNode, function (currentNode, visit) {
+        walk(currentNode.children.reverse(), visit);
+      }.bind(null, currentNode));
+
       if (visitChildren) {
         addChildren(currentNode, nodesToVisit);
       }
@@ -86,10 +101,13 @@ function walker(root) {
   return {
     start: function (visit) {
       walk([new Node(root, 'Trailer', 0)], visit);
-    },
-    walk: walk
+    }
   };
 }
+
+//
+// Tree decoration.
+//
 
 function toText(node) {
   var name = node.name;
@@ -141,16 +159,17 @@ PrettyPrint.prototype.visit = function (node) {
 }
 
 function expando(clickEl, li, element, loadCallback) {
-  element.style.display = 'none';
-  li.style.listStyleType = 'disc';
+  li.classList.add('expando');
   li.appendChild(element);
-  clickEl.style.cursor = 'pointer';
   var expanded = false;
   var loaded = false;
   clickEl.addEventListener('click', function () {
     expanded = !expanded;
-    element.style.display = expanded ? 'block' : 'none';
-    li.style.listStyleType = expanded ? 'circle' : 'disc';
+    if (expanded) {
+      li.classList.add('expanded');
+    } else {
+      li.classList.remove('expanded');
+    }
     if (!loaded) {
       loadCallback();
       loaded = true;
@@ -165,13 +184,12 @@ function HtmlPrint() {
   document.body.appendChild(this.ul);
 }
 
-HtmlPrint.prototype.visit = function (ul, node) {
+HtmlPrint.prototype.visit = function (ul, node, walk) {
   var obj = node.obj;
 
   var description = toText(node);
 
   var li = document.createElement('li');
-  li.style.listStyleType = 'none';
   var span = document.createElement('span');
   span.textContent = description;
   li.appendChild(span);
@@ -179,13 +197,10 @@ HtmlPrint.prototype.visit = function (ul, node) {
   if (isDict(obj) || isStream(obj) || isArray(obj)) {
     var newUl = document.createElement('ul');
     expando(span, li, newUl, function () {
-      this.walk(node.children.reverse(), this.visit.bind(this, newUl));
+      walk(this.visit.bind(this, newUl));
     }.bind(this));
   } else if (obj instanceof StreamContents) {
     var pre = document.createElement('pre');
-    pre.style.marginTop = 0;
-    pre.style.marginBottom = 0;
-    pre.style.border = '1px solid black';
     expando(span, li, pre, function () {
       var bytes = obj.stream.getBytes();
       var string = '';
@@ -215,13 +230,11 @@ window.addEventListener('change', function webViewerChange(evt) {
     var buffer = evt.target.result;
     var uint8Array = new Uint8Array(buffer);
 
-    var pdf = new PDFDocument(null, uint8Array);
-    pdf.parseStartXRef();
-    pdf.parse();
-    var w = walker(pdf.xref.trailer);
+    var w = createWalker(uint8Array);
     var hp = new HtmlPrint();
-    hp.walk = w.walk;
     w.start(hp.visit.bind(hp, hp.ul));
+    // Expand first level.
+    document.querySelector('.expando > span').click();
   };
 
   var file = files[0];
@@ -229,16 +242,11 @@ window.addEventListener('change', function webViewerChange(evt) {
 
 }, true);
 
-// getData('/mine/pdf.js/test/pdfs/annotation-tx.pdf', function(data) {
-//   var pdf = new PDFDocument(null, data);
-//   pdf.parseStartXRef();
-//   pdf.parse();
-//   var w = walker(pdf.xref.trailer);
-//   // var pp = new PrettyPrint();
-//   // w.start(pp.visit.bind(pp));
-//   // console.log(pp.out);
-//   var hp = new HtmlPrint();
-//   hp.walk = w.walk;
-//   w.start(hp.visit.bind(hp, hp.ul));
-//   window.pdf = pdf;
-// });
+getData('/mine/pdf.js/test/pdfs/annotation-tx.pdf', function(data) {
+  // var w = createWalker(data);
+  // var pp = new PrettyPrint();
+  // w.start(pp.visit.bind(pp));
+  // console.log(pp.out);
+  // var hp = new HtmlPrint();
+  // w.start(hp.visit.bind(hp, hp.ul));
+});

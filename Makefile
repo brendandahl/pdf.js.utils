@@ -1,7 +1,8 @@
 REPO = git@github.com:brendandahl/pdf.js.utils.git
-BUILD_DIR := build
-BASE_VERSION := ec7ead2b5a0fa898151d7c67b4f0f281a62e4a70
-BUILD_NUMBER := `git log --format=oneline $(BASE_VERSION).. | wc -l | awk '{print $$1}'`
+BUILD_DIR = build
+BASE_VERSION = ec7ead2b5a0fa898151d7c67b4f0f281a62e4a70
+BUILD_NUMBER = git log --format=oneline $(BASE_VERSION).. | wc -l | awk '{print $$1}'
+GIT_STATUS = git status --porcelain
 
 # make web
 #
@@ -10,11 +11,9 @@ BUILD_NUMBER := `git log --format=oneline $(BASE_VERSION).. | wc -l | awk '{prin
 # the various viewer files into place.
 GH_PAGES = $(BUILD_DIR)/gh-pages
 web: | pages-repo build-number
-	@echo "Checking for clean repo."
-	test -n "$(git status --porcelain)"
-	@exit $(git status --porcelain | wc -l)
+	@test -z "`$(GIT_STATUS) 2>&1`" || { echo; echo "Your working tree is not clean" 1>&2; $(GIT_STATUS); exit 1; }
 	@cp -R browser/* $(GH_PAGES)/browser
-	@cd $(GH_PAGES); git add -u; git commit -m "Build $(BUILD_NUMBER)."
+	@cd $(GH_PAGES); git add -u; git commit -m "Build `$(BUILD_NUMBER)`."
 	@echo
 	@echo "Website built in $(GH_PAGES)."
 	@echo "Don't forget to cd into $(GH_PAGES)/ and git push."
@@ -38,5 +37,3 @@ $(BUILD_DIR):
 
 clean:
 	rm -rf $(BUILD_DIR)
-
-build-number:
