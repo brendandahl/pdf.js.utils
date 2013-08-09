@@ -141,6 +141,7 @@ PrettyPrint.prototype.visit = function (node) {
 }
 
 function expando(clickEl, li, element, loadCallback) {
+  element.style.display = 'none';
   li.style.listStyleType = 'disc';
   li.appendChild(element);
   clickEl.style.cursor = 'pointer';
@@ -184,6 +185,7 @@ HtmlPrint.prototype.visit = function (ul, node) {
     var pre = document.createElement('pre');
     pre.style.marginTop = 0;
     pre.style.marginBottom = 0;
+    pre.style.border = '1px solid black';
     expando(span, li, pre, function () {
       var bytes = obj.stream.getBytes();
       var string = '';
