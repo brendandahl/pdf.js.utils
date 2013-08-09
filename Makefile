@@ -10,10 +10,10 @@ GIT_STATUS = git status --porcelain
 # the gh-pages branch underneath the build directory, and then move
 # the various viewer files into place.
 GH_PAGES = $(BUILD_DIR)/gh-pages
-web: | pages-repo build-number
+web: | pages-repo
 	@test -z "`$(GIT_STATUS) 2>&1`" || { echo; echo "Your working tree is not clean" 1>&2; $(GIT_STATUS); exit 1; }
 	@cp -R browser/* $(GH_PAGES)/browser
-	@cd $(GH_PAGES); git add -u; git commit -m "Build `$(BUILD_NUMBER)`."
+	@cd $(GH_PAGES); git add -A; git commit -m "Build `$(BUILD_NUMBER)`."
 	@echo
 	@echo "Website built in $(GH_PAGES)."
 	@echo "Don't forget to cd into $(GH_PAGES)/ and git push."
