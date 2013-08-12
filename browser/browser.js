@@ -19,6 +19,18 @@ function getData(url, callback) {
   xhr.send(null);
 }
 
+function parseQueryString(query) {
+  var parts = query.split('&');
+  var params = {};
+  for (var i = 0, ii = parts.length; i < parts.length; ++i) {
+    var param = parts[i].split('=');
+    var key = param[0];
+    var value = param.length > 1 ? param[1] : null;
+    params[decodeURIComponent(key)] = decodeURIComponent(value);
+  }
+  return params;
+}
+
 //
 // Walking
 //
@@ -63,12 +75,17 @@ Node.prototype = {
   }
 };
 
-function createWalker(data) {
+function createWalker(data, root) {
   var pdf = new PDFDocument(null, data);
   pdf.parseStartXRef();
   pdf.parse();
   var xref = pdf.xref;
-  var root = xref.trailer;
+  if (!root || root === 'trailer') {
+    root = xref.trailer;
+  } else {
+    var ref = new Ref(root.num, root.gen);
+    root = xref.fetch(ref);
+  }
 
   function addChildren(node, nodesToVisit) {
     var children = node.children;
@@ -100,7 +117,13 @@ function createWalker(data) {
 
   return {
     start: function (visit) {
-      walk([new Node(root, 'Trailer', 0)], visit);
+      var node;
+      if (!ref) {
+        node = [new Node(root, 'Trailer', 0)];
+      } else {
+        node = [new Node(root, '', 0, ref)];
+      }
+      walk(node, visit);
     }
   };
 }
@@ -178,10 +201,8 @@ function expando(clickEl, li, element, loadCallback) {
   }.bind(this));
 }
 
-function HtmlPrint() {
-  this.ul = document.createElement('ul');
-  this.ul.id = 'main';
-  document.body.appendChild(this.ul);
+function HtmlPrint(ul) {
+  this.ul = ul;
 }
 
 HtmlPrint.prototype.visit = function (ul, node, walk) {
@@ -200,13 +221,21 @@ HtmlPrint.prototype.visit = function (ul, node, walk) {
       walk(this.visit.bind(this, newUl));
     }.bind(this));
   } else if (obj instanceof StreamContents) {
+    span.textContent = '<view contents> ';
     var pre = document.createElement('pre');
+    var a = document.createElement('a');
+    a.textContent = 'download';
+    var bytes = obj.stream.getBytes();
+    var string = '';
+    for (var i = 0; i < bytes.length; i++) {
+      string += String.fromCharCode(bytes[i]);
+    }
+    a.href = 'data:;base64,' + btoa(string);
+    a.addEventListener('click', function(event) {
+      event.stopPropagation();
+    });
+    span.appendChild(a);
     expando(span, li, pre, function () {
-      var bytes = obj.stream.getBytes();
-      var string = '';
-      for (var i = 0; i < bytes.length; i++) {
-        string += String.fromCharCode(bytes[i]);
-      }
       pre.textContent = string;
     });
   }
@@ -214,6 +243,38 @@ HtmlPrint.prototype.visit = function (ul, node, walk) {
 
   return false;
 };
+
+var Browser = {};
+
+function go(data) {
+  Browser.data = data;
+  var hash = document.location.hash.substring(1);
+  var hashParams = parseQueryString(hash);
+  var root = null;
+  if (hashParams.root) {
+    var split = hashParams.root.split(',');
+    root = { num: split[0], gen: split[1] };
+  }
+  var w = createWalker(data, root);
+
+  var ul = document.getElementById('main');
+  if (ul) {
+    ul.textContent = '';
+  } else {
+    ul = document.createElement('ul');
+    ul.id = 'main';
+    document.body.appendChild(ul);
+  }
+
+  var hp = new HtmlPrint(ul);
+  w.start(hp.visit.bind(hp, hp.ul));
+  // var pp = new PrettyPrint();
+  // w.start(pp.visit.bind(pp));
+  // console.log(pp.out);
+
+  // Expand first level.
+  document.querySelector('.expando > span').click();
+}
 
 window.addEventListener('change', function webViewerChange(evt) {
   var files = evt.target.files;
@@ -230,11 +291,7 @@ window.addEventListener('change', function webViewerChange(evt) {
     var buffer = evt.target.result;
     var uint8Array = new Uint8Array(buffer);
 
-    var w = createWalker(uint8Array);
-    var hp = new HtmlPrint();
-    w.start(hp.visit.bind(hp, hp.ul));
-    // Expand first level.
-    document.querySelector('.expando > span').click();
+    go(uint8Array);
   };
 
   var file = files[0];
@@ -242,11 +299,15 @@ window.addEventListener('change', function webViewerChange(evt) {
 
 }, true);
 
-getData('/mine/pdf.js/test/pdfs/annotation-tx.pdf', function(data) {
-  // var w = createWalker(data);
-  // var pp = new PrettyPrint();
-  // w.start(pp.visit.bind(pp));
-  // console.log(pp.out);
-  // var hp = new HtmlPrint();
-  // w.start(hp.visit.bind(hp, hp.ul));
+window.addEventListener('hashchange', function (evt) {
+  go(Browser.data);
 });
+
+var params = parseQueryString(document.location.search.substring(1));
+if (params.file) {
+  getData(params.file, function(data) {
+    go(data);
+  });
+}
+
+
