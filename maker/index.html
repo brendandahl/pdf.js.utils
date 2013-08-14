@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+  	<title>Test PDF Creator</title>
+    <meta charset="utf-8">
+    <script type="text/javascript" src="pdf.js"></script>
+    <script type="text/javascript" src="maker.js"></script>
+    <link rel="stylesheet" href="maker.css"/>
+  </head>
+	<body>
+  	<div id="controls">
+      <table>
+        <tr>
+          <td>
+            Font Ref <br><small>(id e.g. 5)</small>
+          </td>
+          <td>
+            <input id="ref" type="text">
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Stringified Txt <br><small>(include quotes e.g. "a\u000bc")</small>
+          </td>
+          <td>
+            <input id="text" type="text">
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <input type="file" id="file" name="file"/>
+          </td>
+        </tr>
+      </table>
+      <button id="go">Go</button>
+    </div>
+	</body>
+<html>
