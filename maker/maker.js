@@ -194,7 +194,7 @@ var maker = (function () {
     return stream;
   }
 
-  function create(data, fontRef, str) {
+  function create(data, fontRef, content) {
     var pdf = new PDFDocument(null, data);
     pdf.parseStartXRef();
     pdf.parse();
@@ -246,11 +246,6 @@ var maker = (function () {
 
     fontRef.obj = font;
 
-    var content = 'BT\n' +
-                  '10 20 TD\n' +
-                  '/F1 20 Tf\n' +
-                  '(' + str + ') Tj\n' +
-                  'ET\n';
     var pageContent = newStream({
         'Length': content.length
       },
@@ -311,7 +306,10 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
     try {
-      var pdf = maker.create(data, new Ref(ref.value, 0), JSON.parse(text.value));
+      var ops = text.value.replace(/[^\r\n]+/g, function(m) {
+        return JSON.parse('"' + m + '"');
+      });
+      var pdf = maker.create(data, new Ref(ref.value, 0), ops);
     } catch (e) {
       alert ('Creation failed: ' + e);
       throw e;
