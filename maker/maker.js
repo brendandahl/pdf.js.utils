@@ -21,6 +21,31 @@ function assert(cond, message) {
   }
 }
 
+function pad(num, length) {
+  var ret = num + '';
+  while (ret.length < length) {
+    ret = '0' + ret;
+  }
+  return ret;
+}
+
+function hasSpecialChar(str) {
+  for (var i = 0, ii = str.length; i < ii; i++) {
+    switch (str[i]) {
+      case '(':
+      case ')':
+      case '\\':
+      case '\n':
+      case '\r':
+      case '\t':
+      case '\b':
+      case '\f':
+        return true;
+    }
+  }
+  return false;
+}
+
 //
 // Maker
 //
@@ -96,8 +121,15 @@ var maker = (function () {
     } else if (isName(node)) {
       return '/' + node.name;
     } else if (isString(node)) {
-      // TODO escape?
-      return '(' + node + ')';
+      if (!hasSpecialChar(node)) {
+        return '(' + node + ')';
+      } else {
+        var ret = '<';
+        for (var i = 0; i < node.length; i++) {
+          ret += pad(node.charCodeAt(i).toString(16), 2);
+        }
+        return ret + '>';
+      }
     } else if (isArray(node)) {
       var ret = ['['];
       for (var i = 0; i < node.length; i++) {
@@ -107,19 +139,20 @@ var maker = (function () {
       return ret.join(' ');
     } else if (isDict(node)) {
       var map = node.map;
-      var ret = '<<\n';
+      var ret = ['<<'];
       for (var key in map) {
-        ret += '/' + key + ' ' + visit(map[key], refsToVisit, visitedRefs) + '\n';
+        ret.push('/' + key + ' ' + visit(map[key], refsToVisit, visitedRefs));
       }
-      return ret + '>>\n';
+      ret.push('>>');
+      return ret.join('\n');
     } else if (isStream(node)) {
       var ret = '';
       ret += visit(node.dict, refsToVisit, visitedRefs);
-      ret += 'stream\n';
+      ret += '\nstream\n';
       for (var i = 0; i < node.bytes.length; i++) {
         ret += String.fromCharCode(node.bytes[i]);
       }
-      ret += 'endstream\n';
+      ret += '\nendstream\n';
       return ret;
     } else {
       debugger;
@@ -137,18 +170,11 @@ var maker = (function () {
       refManager.setOffset(ref, out.output.length);
       out.write(ref.num + ' ' + ref.gen + ' obj\n');
       out.write(visit(obj, refsToVisit, refSet));
-      out.write('endobj\n');
+      out.write('\nendobj\n');
     }
   }
 
   function createXref(refManager, out) {
-    function pad(num, length) {
-      var ret = num + '';
-      while (ret.length < length) {
-        ret = '0' + ret;
-      }
-      return ret;
-    }
 
     var start = out.output.length;
 
@@ -321,8 +347,8 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // Debugging
-// getData('/mine/pdf.js/test/pdfs/tracemonkey', function (data) {
-//   var pdf = maker.create(data, new Ref(6, 0), 'Trace-based');
+// getData('/pdfs/receipt_94659.pdf', function (data) {
+//   var pdf = maker.create(data, new Ref(30, 0), 'BT 10 20 TD /F1 20 Tf <0055004600540055> Tj ET ');
 //   console.log(pdf);
 //   document.body.appendChild(makeLink(pdf));
 // });
