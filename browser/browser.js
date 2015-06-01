@@ -149,6 +149,15 @@ function toText(node) {
   } else if (isBool(obj)) {
     description = name + ' = ' + obj;
   } else if (isString(obj)) {
+    if (obj.startsWith('\u00FE\u00FF')) {
+      // Text encoded as UTF-16BE bytes, see §7.9.2.2 "Text String Type" of PDF 32000-1:2008
+      // https://wwwimages2.adobe.com/content/dam/Adobe/en/devnet/pdf/pdfs/PDF32000_2008.pdf#G6.1957385
+      var decoded = '';
+      for (var i = 2; i < obj.length; i += 2) {
+        decoded += String.fromCharCode(obj.charCodeAt(i) << 8 | obj.charCodeAt(i + 1));
+      }
+      obj = decoded;
+    }
     description = name + ' = ' + JSON.stringify(obj) + '';
   } else if (obj instanceof StreamContents) {
     description = '<contents>';
