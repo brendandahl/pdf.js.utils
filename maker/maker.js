@@ -149,7 +149,7 @@ var maker = (function () {
       var ret = '';
       ret += visit(node.dict, refsToVisit, visitedRefs);
       ret += '\nstream\n';
-      var bytes = node.getBytes();
+      var bytes = node instanceof Stream ? node.getBytes() : node.bytes;
       for (var i = 0; i < bytes.length; i++) {
         ret += String.fromCharCode(bytes[i]);
       }
