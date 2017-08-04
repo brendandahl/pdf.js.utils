@@ -149,8 +149,9 @@ var maker = (function () {
       var ret = '';
       ret += visit(node.dict, refsToVisit, visitedRefs);
       ret += '\nstream\n';
-      for (var i = 0; i < node.bytes.length; i++) {
-        ret += String.fromCharCode(node.bytes[i]);
+      var bytes = node.getBytes();
+      for (var i = 0; i < bytes.length; i++) {
+        ret += String.fromCharCode(bytes[i]);
       }
       ret += '\nendstream\n';
       return ret;
