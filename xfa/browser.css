@@ -1,0 +1,10 @@
+#controls {
+	border: 1px solid #ccc;
+	padding: 2px;
+}
+
+pre {
+  margin-top: 0;
+  margin-bottom: 0;
+  border: 1px solid black;
+}
