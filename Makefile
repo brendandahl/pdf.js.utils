@@ -14,6 +14,7 @@ web: | pages-repo
 	@test -z "`$(GIT_STATUS) 2>&1`" || { echo; echo "Your working tree is not clean" 1>&2; $(GIT_STATUS); exit 1; }
 	@cp -R browser/* $(GH_PAGES)/browser
 	@cp -R maker/* $(GH_PAGES)/maker
+	@cp -R xfa/* $(GH_PAGES)/xfa
 	@cd $(GH_PAGES); git add -A; git commit -m "Build `$(BUILD_NUMBER)`."
 	@echo
 	@echo "Website built in $(GH_PAGES)."
@@ -33,6 +34,7 @@ pages-repo: | $(BUILD_DIR)
 	fi;
 	@mkdir -p $(GH_PAGES)/browser;
 	@mkdir -p $(GH_PAGES)/maker;
+	@mkdir -p $(GH_PAGES)/xfa;
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
