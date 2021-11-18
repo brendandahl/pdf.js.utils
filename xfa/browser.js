@@ -62,7 +62,7 @@ function createWalker(data, root, div) {
 }
 
 function prettifyXml(sourceXml) {
-  return new XmlBeautify().beautify(sourceXml);
+  return html_beautify(sourceXml);
 }
 
 var Browser = {};
